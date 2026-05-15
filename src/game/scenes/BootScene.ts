@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 
 // Boot scene generates all textures procedurally so we don't ship binary
 // assets. Real art replaces these by load.image() calls + same keys.

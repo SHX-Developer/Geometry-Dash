@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type Phaser from "phaser";
+import type * as Phaser from "phaser";
 import { useGameStore } from "../store/gameStore";
 import { createGame } from "../game/PhaserGame";
 import { haptic } from "../telegram/telegram";

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type Phaser from "phaser";
+import type * as Phaser from "phaser";
 import { useGameStore } from "../store/gameStore";
 import { createEditorRunner } from "../game/EditorRunner";
 import { EditorScene, type EditorTool } from "../game/scenes/EditorScene";

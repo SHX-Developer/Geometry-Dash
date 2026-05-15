@@ -1,5 +1,5 @@
-import Phaser from "phaser";
-import { GAME_HEIGHT, GAME_WIDTH } from "./PhaserGame";
+import * as Phaser from "phaser";
+import { GAME_HEIGHT, GAME_WIDTH } from "./constants";
 import { EditorScene } from "./scenes/EditorScene";
 import type { LevelData } from "./levels/types";
 

@@ -1,13 +1,11 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { GameplayScene } from "./scenes/GameplayScene";
 import { UIScene } from "./scenes/UIScene";
 import type { LevelData } from "./levels/types";
+import { GAME_HEIGHT, GAME_WIDTH } from "./constants";
 
-// Logical canvas size — portrait 9:16. Scale.FIT keeps the aspect ratio
-// inside any container size.
-export const GAME_WIDTH = 540;
-export const GAME_HEIGHT = 960;
+export { GAME_HEIGHT, GAME_WIDTH };
 
 export interface GameLaunchOptions {
   parent: HTMLElement;

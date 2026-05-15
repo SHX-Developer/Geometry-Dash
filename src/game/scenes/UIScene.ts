@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 
 // Overlay HUD: level name (top), progress bar (top), attempt counter (top
 // right). Drawn in screen space — scroll factor 0 keeps it pinned.

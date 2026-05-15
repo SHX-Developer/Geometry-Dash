@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 import type { Skin } from "../skins/skins";
 import type { PlayerMode } from "../levels/types";
 

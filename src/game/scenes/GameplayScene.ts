@@ -1,5 +1,6 @@
-import Phaser from "phaser";
-import { GAME_HEIGHT, GAME_WIDTH, type GameLaunchOptions } from "../PhaserGame";
+import * as Phaser from "phaser";
+import { type GameLaunchOptions } from "../PhaserGame";
+import { GAME_HEIGHT, GAME_WIDTH } from "../constants";
 import { Player, PLAYER_SIZE } from "../player/Player";
 import { loadLevel } from "../levels/LevelLoader";
 import type { LevelData, LevelObject, ObjectKind } from "../levels/types";
