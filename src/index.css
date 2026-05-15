@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #0f0f1a;
+    background-image:
+      radial-gradient(
+        circle at 20% 10%,
+        rgba(124, 77, 255, 0.18),
+        transparent 55%
+      ),
+      radial-gradient(
+        circle at 80% 90%,
+        rgba(77, 255, 184, 0.08),
+        transparent 60%
+      );
+  }
+}
+
+@layer components {
+  .btn-neon {
+    @apply relative inline-flex items-center justify-center
+           rounded-2xl border border-glow/40 bg-bgSoft/70
+           px-6 py-4 text-base font-semibold tracking-wide
+           text-glow backdrop-blur-sm
+           transition-transform duration-150 ease-out
+           shadow-glow hover:scale-[1.03] active:scale-[0.97]
+           hover:shadow-glowStrong;
+  }
+  .btn-neon[data-variant="primary"] {
+    @apply text-white animate-pulseGlow;
+    background:
+      linear-gradient(
+        135deg,
+        rgba(124, 77, 255, 0.9),
+        rgba(179, 136, 255, 0.65)
+      );
+  }
+  .btn-neon[data-variant="ghost"] {
+    @apply bg-transparent text-white/85;
+  }
+
+  .panel {
+    @apply rounded-2xl border border-white/10 bg-bgSoft/60 backdrop-blur-sm
+           p-4 shadow-glow;
+  }
+}

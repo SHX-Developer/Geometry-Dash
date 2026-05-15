@@ -1,0 +1,11 @@
+node_modules
+dist
+dist*
+dist-ssr
+.vite
+tsconfig.tsbuildinfo
+vite.config.ts.timestamp-*.mjs
+.env
+.env.local
+*.log
+.DS_Store

@@ -1,0 +1,32 @@
+{
+  "id": "first_jump",
+  "name": "First Jump",
+  "difficulty": "Easy",
+  "author": "system",
+  "length": 5200,
+  "groundY": 768,
+  "colors": {
+    "primary": "#7C4DFF",
+    "secondary": "#B388FF",
+    "background": "#0F0F1A",
+    "ground": "#1E1E36"
+  },
+  "objects": [
+    { "id": "spike", "x": 656, "y": 752 },
+    { "id": "spike", "x": 976, "y": 752 },
+    { "id": "spike", "x": 1008, "y": 752 },
+    { "id": "block", "x": 1360, "y": 752 },
+    { "id": "block", "x": 1392, "y": 752 },
+    { "id": "block", "x": 1392, "y": 720 },
+    { "id": "jump_pad", "x": 1744, "y": 752 },
+    { "id": "spike", "x": 1872, "y": 752 },
+    { "id": "spike", "x": 1904, "y": 752 },
+    { "id": "spike", "x": 1936, "y": 752 },
+    { "id": "spike", "x": 2416, "y": 752 },
+    { "id": "spike", "x": 2768, "y": 752 },
+    { "id": "spike", "x": 2800, "y": 752 },
+    { "id": "block", "x": 3056, "y": 752 },
+    { "id": "block", "x": 3056, "y": 720 },
+    { "id": "block", "x": 3056, "y": 688 }
+  ]
+}
