@@ -1,37 +1,35 @@
 /** @type {import('tailwindcss').Config} */
+// Minimalist "wireframe" palette — warm off-white page, black ink, single
+// blue accent. Token names match the previous dark palette so existing
+// className strings (bg-bg, text-glow, border-accent…) keep working; only
+// the colours behind them change.
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx,html}"],
   theme: {
     extend: {
       colors: {
-        bg: "#0F0F1A",
-        bgSoft: "#161628",
-        accent: "#7C4DFF",
-        glow: "#B388FF",
-        danger: "#FF4D6D",
-        success: "#4DFFB8",
+        // Surfaces
+        bg: "#f0eee9",        // page background (warm off-white)
+        bgSoft: "#fafaf7",    // subtle inset surface
+        panel: "#ffffff",     // card / panel surface
+
+        // Ink
+        ink: "#1a1a1a",       // primary text / borders
+        ink2: "#2a2a2a",      // slightly softer ink
+        inkSoft: "#6b6b6b",   // labels, secondary text
+        divider: "#d0cec8",   // subtle hairlines
+
+        // Accents
+        accent: "#2D6BFF",    // primary CTA blue (the only chromatic accent)
+        glow: "#1a1a1a",      // re-mapped: "glow" is now ink, since the
+                              // wireframe look uses black where the old
+                              // theme used neon.
+        danger: "#c92a2a",
+        success: "#1a1a1a",   // checks render in ink, not green.
       },
       fontFamily: {
-        display: ["'Press Start 2P'", "system-ui", "sans-serif"],
-        ui: ["system-ui", "sans-serif"],
-      },
-      boxShadow: {
-        glow: "0 0 24px rgba(179, 136, 255, 0.55)",
-        glowStrong: "0 0 36px rgba(179, 136, 255, 0.85)",
-      },
-      keyframes: {
-        pulseGlow: {
-          "0%,100%": { boxShadow: "0 0 12px rgba(179,136,255,0.45)" },
-          "50%": { boxShadow: "0 0 28px rgba(179,136,255,0.95)" },
-        },
-        floaty: {
-          "0%,100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-6px)" },
-        },
-      },
-      animation: {
-        pulseGlow: "pulseGlow 1.8s ease-in-out infinite",
-        floaty: "floaty 3s ease-in-out infinite",
+        ui: ["ui-sans-serif", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["ui-monospace", "SF Mono", "Menlo", "monospace"],
       },
     },
   },

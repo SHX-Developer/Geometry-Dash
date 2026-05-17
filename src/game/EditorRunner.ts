@@ -20,9 +20,10 @@ export function createEditorRunner(opts: EditorRunnerOptions): {
     parent: opts.parent,
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
-    backgroundColor: "#0F0F1A",
+    backgroundColor: "#28415F",
     scale: {
-      mode: Phaser.Scale.FIT,
+      // ENVELOP — fills the editor area, no pillarboxes on wide screens.
+      mode: Phaser.Scale.ENVELOP,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     scene: [EditorScene],

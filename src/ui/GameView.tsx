@@ -12,6 +12,14 @@ export function GameView() {
     percent: number;
     attempts: number;
   } | null>(null);
+  // Mirrored from the Phaser scene's "run:progress" event so the HUD can
+  // show a live progress bar / attempt count. Kept here in React rather than
+  // in the scene's UIScene so the styling stays in one place.
+  const [progress, setProgress] = useState<{ percent: number; attempts: number }>({
+    percent: 0,
+    attempts: 1,
+  });
+  const [levelName, setLevelName] = useState("");
 
   const {
     currentLevelId,
@@ -26,7 +34,6 @@ export function GameView() {
     setPreviewLevel,
   } = useGameStore();
 
-  // If previewLevel is set, we came from editor and should return there.
   const cameFromEditor = !!previewLevel;
 
   useEffect(() => {
@@ -51,7 +58,30 @@ export function GameView() {
     });
     gameRef.current = game;
 
+    // Subscribe to GameplayScene events for the HUD. The scene emits
+    // "run:start" (name + attempts) and "run:progress" (percent + attempts).
+    let onStart: ((d: { levelName: string; attempts: number }) => void) | undefined;
+    let onProgress: ((d: { percent: number; attempts: number }) => void) | undefined;
+    const attach = setInterval(() => {
+      const scene = game.scene.getScene("GameplayScene");
+      if (!scene) return;
+      onStart = (d) => {
+        setLevelName(d.levelName);
+        setProgress({ percent: 0, attempts: d.attempts });
+      };
+      onProgress = (d) => {
+        setProgress(d);
+      };
+      scene.events.on("run:start", onStart);
+      scene.events.on("run:progress", onProgress);
+      clearInterval(attach);
+    }, 50);
+
     return () => {
+      clearInterval(attach);
+      const scene = game.scene.getScene("GameplayScene");
+      if (scene && onStart) scene.events.off("run:start", onStart);
+      if (scene && onProgress) scene.events.off("run:progress", onProgress);
       game.destroy(true);
       gameRef.current = null;
     };
@@ -68,38 +98,103 @@ export function GameView() {
   };
 
   return (
-    <div className="absolute inset-0 bg-bg">
+    <div className="absolute inset-0 bg-bg overflow-hidden">
       <div ref={containerRef} className="w-full h-full" />
 
       {!result && (
-        <button
-          className="absolute top-3 left-3 z-10 rounded-full bg-bgSoft/80 border border-glow/40 px-3 py-1 text-xs uppercase tracking-widest text-glow"
-          onClick={() => {
-            gameRef.current?.destroy(true);
-            gameRef.current = null;
-            exitToWhereWeStartedFrom();
-          }}
-        >
-          ← выйти
-        </button>
+        <>
+          {/* TOP HUD — back · level name + progress · pause-ish */}
+          <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-3">
+            <button
+              className="box rounded w-12 h-12 flex items-center justify-center text-xs font-bold tracking-wider bg-panel"
+              onClick={() => {
+                gameRef.current?.destroy(true);
+                gameRef.current = null;
+                exitToWhereWeStartedFrom();
+              }}
+              aria-label="Back"
+            >
+              ←
+            </button>
+            <div className="flex-1 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <div
+                  className="truncate"
+                  style={{
+                    font: "700 11px/1 ui-monospace, monospace",
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "#2a2a2a",
+                  }}
+                >
+                  {levelName || "LEVEL"}
+                </div>
+                <div
+                  style={{
+                    font: "700 11px/1 ui-monospace, monospace",
+                    letterSpacing: "0.1em",
+                    color: "#2a2a2a",
+                  }}
+                >
+                  {progress.percent}%
+                </div>
+              </div>
+              <div className="box rounded-full h-3 p-0.5 bg-panel">
+                <div
+                  className="h-full rounded-full bg-ink"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </div>
+            </div>
+            <div className="box rounded w-12 h-12 flex items-center justify-center bg-panel">
+              <span
+                style={{
+                  font: "700 12px/1 ui-monospace, monospace",
+                  letterSpacing: "0.1em",
+                  color: "#1a1a1a",
+                }}
+              >
+                #{progress.attempts}
+              </span>
+            </div>
+          </div>
+
+          {/* BOTTOM HINT */}
+          <div className="absolute bottom-3 left-3 right-3 z-10 flex justify-between">
+            <div className="lbl">TAP TO JUMP</div>
+            <div className="lbl">{cameFromEditor ? "PREVIEW" : "LEVEL"}</div>
+          </div>
+        </>
       )}
 
       {result && (
-        <div className="absolute inset-0 flex items-center justify-center bg-bg/90 backdrop-blur">
-          <div className="panel max-w-[300px] w-full text-center">
-            <h3
-              className="text-2xl font-bold mb-2"
-              style={{ color: result.completed ? "#4DFFB8" : "#FF4D6D" }}
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ background: "rgba(240,238,233,0.92)" }}
+        >
+          <div className="panel max-w-[340px] w-[88%] text-center flex flex-col gap-3">
+            <div
+              className="font-extrabold italic text-ink"
+              style={{
+                fontSize: 36,
+                letterSpacing: "0.04em",
+                lineHeight: 1,
+              }}
             >
-              {result.completed ? "ПРОЙДЕНО" : "ПОПРОБУЙ ЕЩЁ"}
-            </h3>
-            <p className="text-white/70 text-sm mb-4">
-              Прогресс: {result.percent}% · Попытка #{result.attempts}
-            </p>
-            <div className="flex flex-col gap-2">
+              {result.completed ? "COMPLETED" : "TRY AGAIN"}
+            </div>
+            <div className="lbl lbl-dk">
+              {result.percent}% · ATTEMPT #{result.attempts}
+            </div>
+            <div className="box rounded-full h-2 mt-1 p-0">
+              <div
+                className="h-full bg-ink rounded-full"
+                style={{ width: `${result.percent}%` }}
+              />
+            </div>
+            <div className="flex flex-col gap-2 mt-2">
               <button
-                className="btn-neon"
-                data-variant="primary"
+                className="btn-acc h-12 rounded text-sm"
                 onClick={() => {
                   setResult(null);
                   // Force a fresh mount by nulling-and-restoring the source.
@@ -120,17 +215,16 @@ export function GameView() {
                   }
                 }}
               >
-                Заново
+                RETRY
               </button>
               <button
-                className="btn-neon"
-                data-variant="ghost"
+                className="btn-sec h-11 rounded text-sm"
                 onClick={() => {
                   setResult(null);
                   exitToWhereWeStartedFrom();
                 }}
               >
-                {cameFromEditor ? "Назад в редактор" : "К уровням"}
+                {cameFromEditor ? "BACK TO EDITOR" : "LEVELS"}
               </button>
             </div>
           </div>

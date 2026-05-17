@@ -1,6 +1,9 @@
 import { useGameStore } from "../store/gameStore";
 import { haptic } from "../telegram/telegram";
 
+// MainMenu — minimalist wireframe layout matching screens.jsx · 01 MAIN MENU.
+// Same routing behaviour as before: PLAY → levels, EDITOR → editor (fresh
+// draft), SKINS → skins.
 export function MainMenu() {
   const { setScreen, setEditingLevelId, setDraftLevel, coins, muted, toggleMuted } =
     useGameStore();
@@ -10,7 +13,6 @@ export function MainMenu() {
     if (s === "play") {
       setScreen("levels");
     } else if (s === "editor") {
-      // Fresh editor session — drop any existing draft and editing id.
       setEditingLevelId(null);
       setDraftLevel(null);
       setScreen("editor");
@@ -20,74 +22,102 @@ export function MainMenu() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-between py-12 px-6">
-      <div className="w-full flex justify-between items-center pl-1 pr-2">
-        <button
-          onClick={() => {
-            haptic("light");
-            toggleMuted();
-          }}
-          className="rounded-full bg-bgSoft/70 border border-glow/30 w-9 h-9 text-glow"
-          aria-label="Mute toggle"
-        >
-          {muted ? "🔇" : "🔊"}
-        </button>
-        <div className="rounded-full bg-bgSoft/70 border border-glow/30 px-3 py-1 text-sm text-glow">
-          ★ {coins}
+    <div className="absolute inset-0 bg-bg overflow-hidden">
+      {/* Top tray */}
+      <div className="absolute top-4 left-4 right-4 flex justify-between items-center">
+        <div className="lbl">v0.4 · MVP</div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              haptic("light");
+              toggleMuted();
+            }}
+            className="box w-9 h-9 rounded text-ink flex items-center justify-center"
+            aria-label="Mute toggle"
+          >
+            {muted ? "🔇" : "♪"}
+          </button>
+          <div className="box rounded px-3 py-1 lbl lbl-dk">★ {coins}</div>
         </div>
       </div>
 
-      <div className="text-center">
+      {/* Logo / wordmark */}
+      <div className="absolute top-[18%] left-0 right-0 text-center">
         <h1
-          className="text-4xl font-extrabold tracking-widest text-white animate-floaty"
-          style={{
-            textShadow:
-              "0 0 12px rgba(179,136,255,0.85), 0 0 28px rgba(124,77,255,0.6)",
-          }}
+          className="text-ink font-extrabold italic"
+          style={{ fontSize: "clamp(48px, 14vw, 110px)", letterSpacing: "0.04em", lineHeight: 1 }}
         >
           GEOMETRY
         </h1>
         <h1
-          className="text-4xl font-extrabold tracking-widest text-glow"
-          style={{
-            textShadow:
-              "0 0 12px rgba(179,136,255,0.85), 0 0 28px rgba(124,77,255,0.6)",
-          }}
+          className="text-ink font-extrabold italic"
+          style={{ fontSize: "clamp(48px, 14vw, 110px)", letterSpacing: "0.04em", lineHeight: 1, marginTop: 4 }}
         >
           DASH
         </h1>
-        <p className="mt-3 text-xs uppercase tracking-[0.4em] text-white/60">
-          telegram · mini app
-        </p>
+        <div className="lbl mt-4">TELEGRAM · MINI APP</div>
       </div>
 
-      <div className="w-full flex flex-col gap-4 max-w-xs">
-        <button
-          className="btn-neon"
-          data-variant="ghost"
-          onClick={() => go("skins")}
-        >
-          СКИНЫ
-        </button>
-        <button
-          className="btn-neon"
-          data-variant="primary"
-          onClick={() => go("play")}
-        >
-          ИГРАТЬ
-        </button>
-        <button
-          className="btn-neon"
-          data-variant="ghost"
-          onClick={() => go("editor")}
-        >
-          СОЗДАТЬ
-        </button>
+      {/* Three primary buttons */}
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-[28%] w-full max-w-md px-6">
+        <div className="flex flex-col gap-3">
+          <button
+            className="btn-acc h-16 rounded text-base"
+            onClick={() => go("play")}
+          >
+            PLAY
+          </button>
+          <button
+            className="btn-sec h-14 rounded text-sm"
+            onClick={() => go("editor")}
+          >
+            EDITOR
+          </button>
+          <button
+            className="btn-sec h-14 rounded text-sm"
+            onClick={() => go("skins")}
+          >
+            SKINS
+          </button>
+        </div>
       </div>
 
-      <p className="text-[10px] uppercase tracking-widest text-white/30">
-        v0.2 · MVP
-      </p>
+      {/* Secondary row */}
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-[14%] flex gap-3">
+        <SecondaryTile label="SETTINGS" />
+        <SecondaryTile
+          label={muted ? "SOUND · OFF" : "SOUND · ON"}
+          onClick={() => {
+            haptic("light");
+            toggleMuted();
+          }}
+        />
+        <SecondaryTile label="ACCOUNT" />
+      </div>
+
+      {/* Bottom info */}
+      <div className="absolute bottom-4 left-4 right-4 flex justify-between">
+        <div className="lbl">BUILD INFO</div>
+        <div className="lbl">DAILY · LEADERBOARD</div>
+      </div>
     </div>
+  );
+}
+
+function SecondaryTile({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="box rounded w-20 h-20 flex items-center justify-center text-center"
+      style={{ font: "700 10px/1.2 ui-monospace, monospace", letterSpacing: "0.1em", color: "#1a1a1a" }}
+    >
+      {label}
+    </button>
   );
 }

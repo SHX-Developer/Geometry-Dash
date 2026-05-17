@@ -13,98 +13,117 @@ export function SkinMenu() {
     setScreen,
   } = useGameStore();
   const skin = getSkin(selectedSkinId);
+  // Skin previews keep the original (colorful) palette so players can still
+  // distinguish skins, even though the in-game cube is rendered monochrome
+  // by the minimalist Phaser theme.
   const primary = primaryOverride ?? skin.primary;
   const secondary = secondaryOverride ?? skin.secondary;
 
   return (
-    <div className="absolute inset-0 flex flex-col px-5 py-6 gap-4">
-      <header className="flex items-center justify-between">
+    <div className="absolute inset-0 bg-bg overflow-hidden flex flex-col">
+      <header className="flex items-center gap-3 px-4 py-3 bg-panel border-b-[1.5px] border-ink">
         <button
           onClick={() => setScreen("menu")}
-          className="text-glow text-sm uppercase tracking-widest"
+          className="box rounded w-20 h-10 flex items-center justify-center text-xs font-bold tracking-wider"
         >
-          ← назад
+          ← BACK
         </button>
-        <h2 className="text-glow text-base tracking-[0.3em] uppercase">
-          Скины
+        <div className="w-px h-8 bg-divider" />
+        <h2 className="font-bold italic tracking-wider text-ink text-lg">
+          SKINS
         </h2>
-        <div className="w-12" />
+        <div className="flex-1" />
+        <div className="lbl">
+          {SKINS.filter((s) => s.unlocked).length} / {SKINS.length} UNLOCKED
+        </div>
       </header>
 
-      {/* Preview */}
-      <div className="panel flex flex-col items-center gap-3 py-6">
-        <ShapePreview primary={primary} secondary={secondary} shape={skin.shape} />
-        <div className="text-center">
-          <div className="text-lg font-semibold">{skin.name}</div>
-          <div className="text-[10px] uppercase tracking-widest text-white/40 mt-0.5">
-            shape · {skin.shape}
-          </div>
-          <div className="text-xs text-white/60 mt-1 max-w-[260px]">
-            {skin.description}
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+        {/* Preview */}
+        <div className="panel flex flex-col items-center gap-3 py-6">
+          <ShapePreview primary={primary} secondary={secondary} shape={skin.shape} />
+          <div className="text-center">
+            <div className="text-xl font-bold italic text-ink tracking-wide">
+              {skin.name.toUpperCase()}
+            </div>
+            <div className="lbl mt-1">SHAPE · {skin.shape.toUpperCase()}</div>
+            <div className="text-sm text-ink2 mt-2 max-w-[280px]">
+              {skin.description}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Color pickers */}
-      <div className="panel grid grid-cols-2 gap-3">
-        <ColorRow
-          label="Primary"
-          value={primary}
-          onChange={(c) => {
-            haptic("light");
-            setPrimaryOverride(c === skin.primary ? null : c);
-          }}
-          baseColor={skin.primary}
-        />
-        <ColorRow
-          label="Secondary"
-          value={secondary}
-          onChange={(c) => {
-            haptic("light");
-            setSecondaryOverride(c === skin.secondary ? null : c);
-          }}
-          baseColor={skin.secondary}
-        />
-      </div>
+        {/* Color pickers */}
+        <div className="panel grid grid-cols-2 gap-4">
+          <ColorRow
+            label="PRIMARY"
+            value={primary}
+            onChange={(c) => {
+              haptic("light");
+              setPrimaryOverride(c === skin.primary ? null : c);
+            }}
+            baseColor={skin.primary}
+          />
+          <ColorRow
+            label="SECONDARY"
+            value={secondary}
+            onChange={(c) => {
+              haptic("light");
+              setSecondaryOverride(c === skin.secondary ? null : c);
+            }}
+            baseColor={skin.secondary}
+          />
+        </div>
 
-      {/* Skin grid */}
-      <div className="grid grid-cols-2 gap-3 mt-1">
-        {SKINS.map((s) => {
-          const active = s.id === selectedSkinId;
-          return (
-            <button
-              key={s.id}
-              disabled={!s.unlocked}
-              onClick={() => {
-                haptic("medium");
-                setSelectedSkinId(s.id);
-                setPrimaryOverride(null);
-                setSecondaryOverride(null);
-              }}
-              className={[
-                "relative rounded-2xl border p-4 flex flex-col items-center gap-2",
-                "transition-transform active:scale-[0.97]",
-                active
-                  ? "border-glow shadow-glow"
-                  : "border-white/10 bg-bgSoft/60",
-                !s.unlocked ? "opacity-50" : "",
-              ].join(" ")}
-            >
-              <ShapePreview
-                primary={s.primary}
-                secondary={s.secondary}
-                shape={s.shape}
-                small
-              />
-              <div className="text-xs">{s.name}</div>
-              {!s.unlocked && (
-                <span className="absolute top-2 right-2 text-[10px] text-white/60">
-                  🔒
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {/* Skin grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {SKINS.map((s) => {
+            const active = s.id === selectedSkinId;
+            return (
+              <button
+                key={s.id}
+                disabled={!s.unlocked}
+                onClick={() => {
+                  haptic("medium");
+                  setSelectedSkinId(s.id);
+                  setPrimaryOverride(null);
+                  setSecondaryOverride(null);
+                }}
+                className={[
+                  "relative rounded p-4 flex flex-col items-center gap-2 border-[1.5px]",
+                  active
+                    ? "border-ink bg-bgSoft"
+                    : "border-divider bg-panel",
+                  !s.unlocked ? "opacity-50" : "",
+                ].join(" ")}
+              >
+                <ShapePreview
+                  primary={s.primary}
+                  secondary={s.secondary}
+                  shape={s.shape}
+                  small
+                />
+                <div
+                  className="text-xs font-bold tracking-wider text-ink"
+                  style={{ letterSpacing: "0.08em" }}
+                >
+                  {s.name.toUpperCase()}
+                </div>
+                {!s.unlocked && (
+                  <span className="absolute top-2 right-2 lbl">🔒</span>
+                )}
+                {active && (
+                  <span
+                    className="absolute top-1.5 left-1.5"
+                    style={{ font: "700 9px/1 ui-monospace, monospace", letterSpacing: "0.12em", color: "#1a1a1a" }}
+                  >
+                    ●
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -126,7 +145,6 @@ function ShapePreview({
     width: size,
     height: size,
     position: "relative",
-    filter: `drop-shadow(0 0 14px ${primary}80)`,
   };
 
   if (shape === "ball") {
@@ -138,6 +156,7 @@ function ShapePreview({
             height: size,
             borderRadius: "50%",
             background: primary,
+            border: "1.5px solid #1a1a1a",
             position: "relative",
           }}
         >
@@ -146,17 +165,6 @@ function ShapePreview({
               position: "absolute",
               inset: size * 0.22,
               background: secondary,
-              borderRadius: "50%",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: size * 0.18,
-              top: size * 0.18,
-              width: size * 0.12,
-              height: size * 0.12,
-              background: "rgba(255,255,255,0.45)",
               borderRadius: "50%",
             }}
           />
@@ -172,11 +180,10 @@ function ShapePreview({
           <polygon
             points="6,18 92,50 6,82"
             fill={primary}
-            stroke="rgba(255,255,255,0.2)"
-            strokeWidth="1.5"
+            stroke="#1a1a1a"
+            strokeWidth="2"
           />
           <circle cx="50" cy="50" r="10" fill={secondary} />
-          <polygon points="6,82 30,90 30,72" fill={secondary} opacity="0.85" />
         </svg>
       </div>
     );
@@ -186,7 +193,12 @@ function ShapePreview({
     return (
       <div style={wrap}>
         <svg width={size} height={size} viewBox="0 0 100 100">
-          <polygon points="50,4 96,50 50,96 4,50" fill={primary} />
+          <polygon
+            points="50,4 96,50 50,96 4,50"
+            fill={primary}
+            stroke="#1a1a1a"
+            strokeWidth="2"
+          />
           <circle cx="50" cy="50" r="14" fill={secondary} />
         </svg>
       </div>
@@ -196,28 +208,17 @@ function ShapePreview({
   // cube (default)
   return (
     <div
-      className="rounded-xl"
       style={{
         ...wrap,
         background: primary,
+        border: "1.5px solid #1a1a1a",
       }}
     >
       <div
-        className="absolute rounded-md"
+        className="absolute"
         style={{
           inset: size * 0.22,
           background: secondary,
-        }}
-      />
-      <div
-        className="absolute"
-        style={{
-          left: size * 0.1,
-          right: size * 0.1,
-          top: size * 0.1,
-          height: size * 0.1,
-          background: "rgba(255,255,255,0.18)",
-          borderRadius: 3,
         }}
       />
     </div>
@@ -225,16 +226,16 @@ function ShapePreview({
 }
 
 const PALETTE = [
+  "#1a1a1a",
+  "#ffffff",
+  "#2D6BFF",
+  "#c92a2a",
+  "#6b6b6b",
   "#7C4DFF",
-  "#B388FF",
   "#FF6A3D",
+  "#4DFFB8",
   "#FFD23F",
   "#4DD0E1",
-  "#80DEEA",
-  "#4DFFB8",
-  "#FF4D6D",
-  "#FFFFFF",
-  "#212135",
 ];
 
 function ColorRow({
@@ -251,14 +252,12 @@ function ColorRow({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs uppercase tracking-widest text-white/70">
-          {label}
-        </span>
+        <span className="lbl lbl-dk">{label}</span>
         <span
-          className="text-[10px] text-white/40 cursor-pointer"
+          className="lbl cursor-pointer"
           onClick={() => onChange(baseColor)}
         >
-          сброс
+          RESET
         </span>
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -266,17 +265,12 @@ function ColorRow({
           <button
             key={c}
             onClick={() => onChange(c)}
-            className="w-6 h-6 rounded-full border"
+            className="w-6 h-6 rounded-full"
             style={{
               background: c,
-              borderColor:
-                value.toUpperCase() === c.toUpperCase()
-                  ? "#fff"
-                  : "rgba(255,255,255,0.18)",
-              boxShadow:
-                value.toUpperCase() === c.toUpperCase()
-                  ? "0 0 10px rgba(255,255,255,0.6)"
-                  : undefined,
+              border: `2px solid ${
+                value.toUpperCase() === c.toUpperCase() ? "#1a1a1a" : "#d0cec8"
+              }`,
             }}
             aria-label={c}
           />

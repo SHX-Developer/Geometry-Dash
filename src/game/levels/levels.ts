@@ -1,7 +1,9 @@
 import type { LevelData, LevelObject, ObjectKind } from "./types";
+import { DEFAULT_GROUND_Y, CEILING_Y } from "../constants";
 
-// Helpers to author levels concisely. Ground top at y=768 by default.
-const GROUND_Y = 768;
+// Helpers to author levels concisely. Landscape (960×540): ground top at
+// y=432, ceiling band at y=60, so the play area is ~11.6 cells tall.
+const GROUND_Y = DEFAULT_GROUND_Y;
 const G = 32; // grid
 
 function obj(
@@ -25,15 +27,26 @@ function block(cellX: number, cellsFromGround = 0): LevelObject {
 function pad(cellX: number, cellsFromGround = 0): LevelObject {
   return obj("jump_pad", cellX, cellsFromGround);
 }
-function gravP(cellX: number, cellsFromGround = 8): LevelObject {
-  // portals are tall — center them in the play area
-  return obj("gravity_portal", cellX, cellsFromGround);
+/** Spike hanging from the ceiling, pointing down. Use for flipped-gravity. */
+function ceilSpike(cellX: number): LevelObject {
+  // y placed near the ceiling band, pointing down (rotation 180°)
+  return {
+    id: "spike",
+    x: cellX * G + G / 2,
+    y: CEILING_Y + G / 2,
+    rotation: 180,
+  };
 }
-function shipP(cellX: number, cellsFromGround = 8): LevelObject {
-  return obj("ship_portal", cellX, cellsFromGround);
+// Center portal vertically in the play area so it's visually consistent.
+const PORTAL_Y = (CEILING_Y + GROUND_Y) / 2;
+function gravP(cellX: number): LevelObject {
+  return { id: "gravity_portal", x: cellX * G + G / 2, y: PORTAL_Y };
 }
-function cubeP(cellX: number, cellsFromGround = 8): LevelObject {
-  return obj("cube_portal", cellX, cellsFromGround);
+function shipP(cellX: number): LevelObject {
+  return { id: "ship_portal", x: cellX * G + G / 2, y: PORTAL_Y };
+}
+function cubeP(cellX: number): LevelObject {
+  return { id: "cube_portal", x: cellX * G + G / 2, y: PORTAL_Y };
 }
 
 // ─── Level 1: First Jump (Easy) ────────────────────────────────────────────
@@ -105,7 +118,6 @@ const level2: LevelData = {
     block(70),
     block(70, 1),
     block(70, 2),
-    block(70, 3),
     pad(82),
     spike(88),
     spike(89),
@@ -114,13 +126,11 @@ const level2: LevelData = {
     block(115),
     block(115, 1),
     block(115, 2),
-    block(115, 3),
   ],
 };
 
 // ─── Level 3: Gravity Rush (Hard) ──────────────────────────────────────────
-// Introduces gravity_portal. After the first flip the player runs on the
-// ceiling; spikes need to be placed at the top now (cellsFromGround ≈ 20).
+// Gravity portal flips player to the ceiling — use ceilSpike() up there.
 const level3: LevelData = {
   id: "gravity_rush",
   name: "Gravity Rush",
@@ -141,13 +151,13 @@ const level3: LevelData = {
     spike(22),
     spike(23),
     // First gravity flip → now running on ceiling
-    gravP(34, 8),
-    // Spikes ON the ceiling (hanging down) — cellsFromGround big = near top
-    spike(46, 19),
-    spike(48, 19),
-    spike(52, 19),
+    gravP(34),
+    // Ceiling spikes (pointing down)
+    ceilSpike(46),
+    ceilSpike(48),
+    ceilSpike(52),
     // Flip back to floor
-    gravP(60, 8),
+    gravP(60),
     // Ground run with blocks
     block(70),
     block(71),
@@ -155,17 +165,15 @@ const level3: LevelData = {
     spike(76),
     spike(77),
     // Flip again, longer ceiling segment
-    gravP(85, 8),
-    spike(96, 19),
-    spike(102, 19),
-    spike(103, 19),
-    pad(108, 20), // upward-from-ceiling = bounces down? In our model pad is generic
+    gravP(85),
+    ceilSpike(96),
+    ceilSpike(102),
+    ceilSpike(103),
     // Back to floor for the finish
-    gravP(118, 8),
+    gravP(118),
     block(130),
     block(130, 1),
     block(130, 2),
-    block(130, 3),
   ],
 };
 
@@ -192,19 +200,19 @@ const level4: LevelData = {
     spike(32),
     spike(33),
     // Switch to ship — hold to fly, release to fall
-    shipP(42, 8),
+    shipP(42),
     // Ship corridor: spikes on floor and ceiling — must fly through middle
     spike(54),
     spike(56),
     spike(58),
-    spike(64, 18),
-    spike(66, 18),
-    spike(68, 18),
-    block(72, 10), // floating block in middle of ship corridor
+    ceilSpike(64),
+    ceilSpike(66),
+    ceilSpike(68),
+    block(72, 5), // floating block in middle of ship corridor
     spike(78),
-    spike(82, 18),
+    ceilSpike(82),
     // Back to cube mode
-    cubeP(95, 8),
+    cubeP(95),
     // Normal cube finish
     spike(108),
     block(118),
@@ -215,7 +223,6 @@ const level4: LevelData = {
     block(150),
     block(150, 1),
     block(150, 2),
-    block(150, 3),
   ],
 };
 

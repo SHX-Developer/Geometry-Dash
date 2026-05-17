@@ -23,6 +23,11 @@ export class BeatEngine {
   private readonly LOOK_AHEAD = 0.15;
   private readonly TICK_MS = 25;
 
+  // Cached noise buffers — recreating these on every beat caused ~2-3 ms
+  // GC stutter per second. Created once at start().
+  private hatNoise: AudioBuffer | null = null;
+  private snareNoise: AudioBuffer | null = null;
+
   constructor(bpm = 130) {
     this.bpm = bpm;
   }
@@ -66,6 +71,7 @@ export class BeatEngine {
       this.masterGain.gain.value = this.muted ? 0 : 0.35;
       this.masterGain.connect(this.ctx.destination);
       this.nextBeatTime = this.ctx.currentTime + 0.05;
+      this.buildNoiseBuffers();
     }
 
     this.intervalId = window.setInterval(() => this.scheduler(), this.TICK_MS);
@@ -130,6 +136,23 @@ export class BeatEngine {
     }
   }
 
+  private buildNoiseBuffers() {
+    if (!this.ctx) return;
+    const hatSize = Math.floor(this.ctx.sampleRate * 0.05);
+    this.hatNoise = this.ctx.createBuffer(1, hatSize, this.ctx.sampleRate);
+    const hd = this.hatNoise.getChannelData(0);
+    for (let i = 0; i < hatSize; i++) hd[i] = (Math.random() * 2 - 1) * 0.7;
+
+    const snareSize = Math.floor(this.ctx.sampleRate * 0.15);
+    this.snareNoise = this.ctx.createBuffer(
+      1,
+      snareSize,
+      this.ctx.sampleRate
+    );
+    const sd = this.snareNoise.getChannelData(0);
+    for (let i = 0; i < snareSize; i++) sd[i] = (Math.random() * 2 - 1) * 0.7;
+  }
+
   private kick(when: number) {
     if (!this.ctx || !this.masterGain) return;
     const osc = this.ctx.createOscillator();
@@ -146,15 +169,9 @@ export class BeatEngine {
   }
 
   private hat(when: number, velocity: number) {
-    if (!this.ctx || !this.masterGain) return;
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.05);
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.7;
-    }
+    if (!this.ctx || !this.masterGain || !this.hatNoise) return;
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this.hatNoise;
     const hp = this.ctx.createBiquadFilter();
     hp.type = "highpass";
     hp.frequency.value = 7000;
@@ -168,15 +185,9 @@ export class BeatEngine {
   }
 
   private snare(when: number) {
-    if (!this.ctx || !this.masterGain) return;
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.15);
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.7;
-    }
+    if (!this.ctx || !this.masterGain || !this.snareNoise) return;
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this.snareNoise;
     const bp = this.ctx.createBiquadFilter();
     bp.type = "bandpass";
     bp.frequency.value = 1800;

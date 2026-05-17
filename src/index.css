@@ -4,50 +4,87 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   body {
-    background-color: #0f0f1a;
-    background-image:
-      radial-gradient(
-        circle at 20% 10%,
-        rgba(124, 77, 255, 0.18),
-        transparent 55%
-      ),
-      radial-gradient(
-        circle at 80% 90%,
-        rgba(77, 255, 184, 0.08),
-        transparent 60%
-      );
+    background-color: #f0eee9;
+    color: #1a1a1a;
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
   }
 }
 
 @layer components {
-  .btn-neon {
-    @apply relative inline-flex items-center justify-center
-           rounded-2xl border border-glow/40 bg-bgSoft/70
-           px-6 py-4 text-base font-semibold tracking-wide
-           text-glow backdrop-blur-sm
-           transition-transform duration-150 ease-out
-           shadow-glow hover:scale-[1.03] active:scale-[0.97]
-           hover:shadow-glowStrong;
+  /* ── Wireframe primitives ──────────────────────────────────────────────
+     Mirror of the prototype's .box / .btn / .lbl styles, exposed as
+     Tailwind component classes so the React screens stay terse. */
+
+  /* NB: <button> in Tailwind preflight has `color: inherit`, but several
+     hosting environments (Telegram WebApp + system "light" color-scheme on
+     macOS Safari for example) still apply the OS `buttontext` color on top
+     of that, which renders our glyphs in near-white-on-white. Pinning
+     `text-ink` here guarantees BACK / SAVE / ⚙ / ↶ / ↷ etc. stay visible. */
+  .box {
+    @apply border-[1.5px] border-ink bg-panel text-ink;
   }
-  .btn-neon[data-variant="primary"] {
-    @apply text-white animate-pulseGlow;
-    background:
-      linear-gradient(
-        135deg,
-        rgba(124, 77, 255, 0.9),
-        rgba(179, 136, 255, 0.65)
-      );
-  }
-  .btn-neon[data-variant="ghost"] {
-    @apply bg-transparent text-white/85;
+  .box-soft {
+    @apply border-[1.5px] border-divider bg-bgSoft text-ink;
   }
 
+  /* Primary action (filled black). Italic bold sans matches the prototype. */
+  .btn {
+    @apply inline-flex items-center justify-center
+           bg-ink text-white rounded
+           italic font-extrabold tracking-wider
+           cursor-pointer select-none
+           transition-transform duration-75
+           hover:-translate-y-px active:translate-y-0;
+  }
+  /* Secondary action (white with black border) */
+  .btn-sec {
+    @apply inline-flex items-center justify-center
+           bg-panel text-ink border-2 border-ink rounded
+           italic font-extrabold tracking-wider
+           cursor-pointer select-none
+           transition-transform duration-75
+           hover:-translate-y-px active:translate-y-0;
+  }
+  /* Accent (blue) — for THE primary CTA on a screen (PLAY, TEST…) */
+  .btn-acc {
+    @apply inline-flex items-center justify-center
+           bg-accent text-white rounded
+           italic font-extrabold tracking-wider
+           cursor-pointer select-none
+           transition-colors duration-100
+           hover:bg-[#1f56d1];
+  }
+
+  /* Uppercase monospace caption (.lbl in the prototype) */
+  .lbl {
+    font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6b6b6b;
+  }
+  .lbl-dk {
+    color: #2a2a2a;
+  }
+
+  /* Card-like surface (panel) — replaces the old dark glass panel */
   .panel {
-    @apply rounded-2xl border border-white/10 bg-bgSoft/60 backdrop-blur-sm
-           p-4 shadow-glow;
+    @apply box rounded-md p-4;
+  }
+
+  /* Back-compat shim for old btn-neon usage in places that haven't been
+     touched yet. Maps every variant onto the new system so nothing renders
+     as black-on-black accidentally. */
+  .btn-neon {
+    @apply btn-sec px-5 py-3 text-base;
+  }
+  .btn-neon[data-variant="primary"] {
+    @apply btn-acc;
+  }
+  .btn-neon[data-variant="ghost"] {
+    @apply btn-sec;
   }
 }

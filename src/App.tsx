@@ -8,15 +8,15 @@ import { Editor } from "./ui/Editor";
 export default function App() {
   const screen = useGameStore((s) => s.screen);
 
+  // Canvas (Phaser, Scale.FIT) and editor fill the full viewport — no max
+  // width cap. Menu screens use their own internal max-width for readability.
   return (
-    <div className="h-full w-full overflow-hidden flex items-center justify-center">
-      <div className="relative w-full h-full max-w-[540px] mx-auto">
-        {screen === "menu" && <MainMenu />}
-        {screen === "skins" && <SkinMenu />}
-        {screen === "levels" && <LevelSelect />}
-        {screen === "play" && <GameView />}
-        {screen === "editor" && <Editor />}
-      </div>
+    <div className="absolute inset-0 overflow-hidden">
+      {screen === "menu" && <MainMenu />}
+      {screen === "skins" && <SkinMenu />}
+      {screen === "levels" && <LevelSelect />}
+      {screen === "play" && <GameView />}
+      {screen === "editor" && <Editor />}
     </div>
   );
 }

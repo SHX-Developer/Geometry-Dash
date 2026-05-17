@@ -28,8 +28,8 @@ export function initTelegram(): void {
   try {
     tg.ready();
     tg.expand();
-    tg.setHeaderColor?.("#0F0F1A");
-    tg.setBackgroundColor?.("#0F0F1A");
+    tg.setHeaderColor?.("#28415F");
+    tg.setBackgroundColor?.("#28415F");
   } catch {
     // Old Telegram clients may not implement every method — ignore.
   }

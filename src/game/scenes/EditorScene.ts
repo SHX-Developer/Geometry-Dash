@@ -1,28 +1,62 @@
 import * as Phaser from "phaser";
-import { GAME_HEIGHT, GAME_WIDTH } from "../constants";
+import { CEILING_Y, GAME_HEIGHT, GAME_WIDTH, GRID as GRID_CONST } from "../constants";
 import type { LevelData, LevelObject, ObjectKind } from "../levels/types";
 import { PLAYER_SIZE } from "../player/Player";
+import { THEME } from "../theme";
 
 export type EditorTool =
   | "block"
   | "spike"
-  | "jump_pad"
+  | "pad_purple"
+  | "pad_yellow"
+  | "pad_blue"
+  | "orb_purple"
+  | "orb_yellow"
+  | "orb_blue"
   | "gravity_portal"
   | "ship_portal"
   | "cube_portal"
+  | "ufo_portal"
+  | "speed_half"
+  | "speed_1x"
+  | "speed_2x"
+  | "speed_3x"
+  | "speed_4x"
   | "erase";
 
-const GRID = 32;
-const DRAG_THRESHOLD = 6; // px — drag vs tap distinction
+const GRID = GRID_CONST;
+const DRAG_THRESHOLD = 6; // px — drag vs tap distinction (touch path only)
+
+// Drag-mode the editor is currently in:
+//   "none"   — nothing pressed
+//   "paint"  — left mouse held: place current tool on every cell crossed
+//   "erase"  — right mouse held: delete every object the cursor passes over
+//   "pan"    — touch drag: scroll the camera horizontally
+// Only one drag-mode is active at a time; pointerup always returns to "none".
+type DragMode = "none" | "paint" | "erase" | "pan";
+
+// Editor uses the shared THEME so what you draw matches the gameplay look.
 
 // Texture key per object kind
 const TEX_OF: Record<ObjectKind, string> = {
   block: "tx_block",
   spike: "tx_spike",
-  jump_pad: "tx_jump_pad",
+  jump_pad: "tx_pad_yellow", // legacy alias
+  pad_purple: "tx_pad_purple",
+  pad_yellow: "tx_pad_yellow",
+  pad_blue: "tx_pad_blue",
+  orb_purple: "tx_orb_purple",
+  orb_yellow: "tx_orb_yellow",
+  orb_blue: "tx_orb_blue",
   gravity_portal: "tx_portal_gravity",
   ship_portal: "tx_portal_ship",
   cube_portal: "tx_portal_cube",
+  ufo_portal: "tx_portal_ufo",
+  speed_half: "tx_speed_half",
+  speed_1x: "tx_speed_1x",
+  speed_2x: "tx_speed_2x",
+  speed_3x: "tx_speed_3x",
+  speed_4x: "tx_speed_4x",
 };
 
 interface PlacedObject {
@@ -44,11 +78,14 @@ export class EditorScene extends Phaser.Scene {
   private finishMarker!: Phaser.GameObjects.Rectangle;
 
   // drag state
-  private isDragging = false;
+  private dragMode: DragMode = "none";
   private hasMoved = false;
   private startPointerX = 0;
   private startScrollX = 0;
-  private paintedCells = new Set<string>(); // "x,y" of cells painted during this drag
+  // "x,y" of cells already touched in the current drag — prevents the same
+  // cell from being re-placed/re-erased N times per second while the pointer
+  // hovers over it.
+  private paintedCells = new Set<string>();
 
   // Notification callback into React
   onChange: (level: LevelData) => void = () => undefined;
@@ -75,8 +112,7 @@ export class EditorScene extends Phaser.Scene {
     // for it — we need our own boot here.
     this.bootTextures();
 
-    const bg = this.level.colors?.background ?? "#0F0F1A";
-    this.cameras.main.setBackgroundColor(bg);
+    this.cameras.main.setBackgroundColor(THEME.bgHex);
     this.cameras.main.setBounds(0, 0, this.level.length + GAME_WIDTH, GAME_HEIGHT);
 
     this.drawGround();
@@ -105,69 +141,111 @@ export class EditorScene extends Phaser.Scene {
     if (!this.textures.exists("tx_spike")) makeSpike(this);
     if (!this.textures.exists("tx_jump_pad")) makeJumpPad(this);
     if (!this.textures.exists("tx_particle")) makeParticle(this);
+    if (!this.textures.exists("tx_pad_purple"))
+      makePad(this, "tx_pad_purple", THEME.padPurple);
+    if (!this.textures.exists("tx_pad_yellow"))
+      makePad(this, "tx_pad_yellow", THEME.padYellow);
+    if (!this.textures.exists("tx_pad_blue"))
+      makePad(this, "tx_pad_blue", THEME.padBlue);
+    if (!this.textures.exists("tx_orb_purple"))
+      makeOrb(this, "tx_orb_purple", THEME.orbPurple);
+    if (!this.textures.exists("tx_orb_yellow"))
+      makeOrb(this, "tx_orb_yellow", THEME.orbYellow);
+    if (!this.textures.exists("tx_orb_blue"))
+      makeOrb(this, "tx_orb_blue", THEME.orbBlue);
     if (!this.textures.exists("tx_portal_gravity"))
-      makePortal(this, "tx_portal_gravity", 0x4dffb8);
+      makePortal(this, "tx_portal_gravity", THEME.portalGravity);
     if (!this.textures.exists("tx_portal_ship"))
-      makePortal(this, "tx_portal_ship", 0x5c5cff);
+      makePortal(this, "tx_portal_ship", THEME.portalShip);
     if (!this.textures.exists("tx_portal_cube"))
-      makePortal(this, "tx_portal_cube", 0xb388ff);
+      makePortal(this, "tx_portal_cube", THEME.portalCube);
+    if (!this.textures.exists("tx_portal_ufo"))
+      makePortal(this, "tx_portal_ufo", THEME.portalUfo);
+    if (!this.textures.exists("tx_speed_half"))
+      makeSpeedPortal(this, "tx_speed_half", THEME.speedHalf, 1, "left");
+    if (!this.textures.exists("tx_speed_1x"))
+      makeSpeedPortal(this, "tx_speed_1x", THEME.speed1x, 1, "right");
+    if (!this.textures.exists("tx_speed_2x"))
+      makeSpeedPortal(this, "tx_speed_2x", THEME.speed2x, 2, "right");
+    if (!this.textures.exists("tx_speed_3x"))
+      makeSpeedPortal(this, "tx_speed_3x", THEME.speed3x, 3, "right");
+    if (!this.textures.exists("tx_speed_4x"))
+      makeSpeedPortal(this, "tx_speed_4x", THEME.speed4x, 4, "right");
   }
 
   private drawGround() {
     const worldW = this.level.length + GAME_WIDTH;
-    const gColor = Phaser.Display.Color.HexStringToColor(
-      this.level.colors?.ground ?? "#1E1E36"
-    ).color;
     this.add
-      .rectangle(worldW / 2, this.level.groundY + (GAME_HEIGHT) / 2, worldW, GAME_HEIGHT, gColor)
+      .rectangle(
+        worldW / 2,
+        this.level.groundY + GAME_HEIGHT / 2,
+        worldW,
+        GAME_HEIGHT,
+        THEME.groundNum
+      )
       .setDepth(-1);
-    const glow = Phaser.Display.Color.HexStringToColor(
-      this.level.colors?.primary ?? "#7C4DFF"
-    ).color;
-    this.add.rectangle(worldW / 2, this.level.groundY, worldW, 3, glow, 1).setDepth(0);
-    // Ceiling indicator (where ship/ball-flipped flight is bounded)
-    this.add.rectangle(worldW / 2, 96, worldW, 2, glow, 0.4).setDepth(0);
+    // Ground line + ceiling line — ink hairlines to stand out on the warm
+    // off-white background.
+    this.add
+      .rectangle(worldW / 2, this.level.groundY, worldW, 2, THEME.glow, 1)
+      .setDepth(0);
+    this.add
+      .rectangle(worldW / 2, CEILING_Y, worldW, 1, THEME.glow, 0.6)
+      .setDepth(0);
   }
 
   private drawGrid() {
     this.gridGraphics?.destroy();
     this.gridGraphics = this.add.graphics().setDepth(-0.5);
     const worldW = this.level.length + GAME_WIDTH;
-    // Vertical lines — every 32px
-    this.gridGraphics.lineStyle(1, 0xffffff, 0.05);
+    const groundY = this.level.groundY;
+    // Horizontal lines — stack UPWARD from the ground so the bottom edge is
+    // exactly the ground (no half-rows above it).
+    this.gridGraphics.lineStyle(1, THEME.gridLight, 0.45);
+    for (let y = groundY; y >= CEILING_Y; y -= GRID) {
+      this.gridGraphics.lineBetween(0, y, worldW, y);
+    }
+    // Vertical lines — at every grid edge.
+    this.gridGraphics.lineStyle(1, THEME.gridLight, 0.4);
     for (let x = 0; x <= worldW; x += GRID) {
-      this.gridGraphics.lineBetween(x, 96, x, this.level.groundY);
+      this.gridGraphics.lineBetween(x, CEILING_Y, x, groundY);
     }
     // Highlighted gridline every 5 cells (160 px)
-    this.gridGraphics.lineStyle(1, 0xffffff, 0.12);
+    this.gridGraphics.lineStyle(1, THEME.gridBright, 0.7);
     for (let x = 0; x <= worldW; x += GRID * 5) {
-      this.gridGraphics.lineBetween(x, 96, x, this.level.groundY);
-    }
-    // Horizontal lines
-    this.gridGraphics.lineStyle(1, 0xffffff, 0.05);
-    for (let y = 96; y <= this.level.groundY; y += GRID) {
-      this.gridGraphics.lineBetween(0, y, worldW, y);
+      this.gridGraphics.lineBetween(x, CEILING_Y, x, groundY);
     }
   }
 
   private drawBoundaries() {
-    // Left wall: thin marker for x=0
-    this.add.rectangle(2, 96 + (this.level.groundY - 96) / 2, 4, this.level.groundY - 96, 0xffffff, 0.18).setDepth(-0.4);
+    const h = this.level.groundY - CEILING_Y;
+    // Left wall: thin ink marker for x=0
+    this.add
+      .rectangle(2, CEILING_Y + h / 2, 4, h, THEME.glow, 0.35)
+      .setDepth(-0.4);
   }
 
   private drawSpawnAndFinish() {
-    const startX = 120;
-    const startY = this.level.groundY - PLAYER_SIZE / 2 - 4;
+    const startX = 180;
+    // Match the gameplay spawn exactly — cube bottom flush on the ground
+    // line, no -4 gap so the editor preview lines up with what actually
+    // happens when you press TEST.
+    const startY = this.level.groundY - PLAYER_SIZE / 2;
+    const h = this.level.groundY - CEILING_Y;
+    // Player spawn — accent-blue dashed-look box (wireframe START marker).
     this.playerGhost = this.add
-      .rectangle(startX, startY, PLAYER_SIZE, PLAYER_SIZE, 0xb388ff, 0.5)
-      .setStrokeStyle(2, 0xb388ff, 0.9)
+      .rectangle(startX, startY, PLAYER_SIZE, PLAYER_SIZE, THEME.accent, 0.08)
+      .setStrokeStyle(2, THEME.accent, 1)
       .setDepth(2) as unknown as Phaser.GameObjects.Image;
 
-    // Finish marker (vertical strip at x = level.length)
+    // Finish marker (vertical strip at x = level.length) — accent blue.
     this.finishMarker = this.add
-      .rectangle(this.level.length, 96 + (this.level.groundY - 96) / 2, 6, this.level.groundY - 96, 0x4dffb8, 0.9)
+      .rectangle(this.level.length, CEILING_Y + h / 2, 4, h, THEME.accent, 0.9)
       .setDepth(2);
-    this.add.rectangle(this.level.length, 80, 60, 24, 0x4dffb8, 0.85).setDepth(2);
+    this.add
+      .rectangle(this.level.length, CEILING_Y - 16, 60, 22, THEME.accent, 1)
+      .setStrokeStyle(1.5, THEME.glow, 1)
+      .setDepth(2);
   }
 
   private placeNode(obj: LevelObject) {
@@ -179,74 +257,179 @@ export class EditorScene extends Phaser.Scene {
       .setScale(obj.scale ?? 1)
       .setAngle(obj.rotation ?? 0)
       .setDepth(3);
-    // Tint to level palette
-    const primary = Phaser.Display.Color.HexStringToColor(
-      this.level.colors?.primary ?? "#7C4DFF"
-    ).color;
-    const secondary = Phaser.Display.Color.HexStringToColor(
-      this.level.colors?.secondary ?? "#B388FF"
-    ).color;
-    if (obj.id === "block") img.setTint(primary);
-    else if (obj.id === "spike") img.setTint(secondary);
-    else if (obj.id === "jump_pad") img.setTint(0x4dffb8);
+    // Editor-only theming: blocks and spikes are ink on the warm off-white
+    // background. Pads / orbs keep their semantic colours.
+    if (obj.id === "block") {
+      img.setTint(THEME.object);
+      // Faint inner edge — separates stacked blocks without being noisy.
+      this.add
+        .rectangle(obj.x, obj.y, 30, 30)
+        .setStrokeStyle(1, THEME.objectOutline, 0.4)
+        .setDepth(4);
+    } else if (obj.id === "spike") {
+      img.setTint(THEME.object);
+    }
+    // Pads / orbs already use their semantic colour palette baked into the
+    // texture, so no setTint is needed for them.
     this.placed.push({ obj, node: img });
   }
 
   // ─── Input ──────────────────────────────────────────────────────────────
 
   private setupInput() {
+    // Disable the native browser right-click menu on the canvas so we can use
+    // RMB as an "erase" gesture without the OS popup eating the event.
+    this.input.mouse?.disableContextMenu();
+
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      this.isDragging = true;
       this.hasMoved = false;
       this.startPointerX = p.x;
       this.startScrollX = this.cameras.main.scrollX;
       this.paintedCells.clear();
+
+      // Touch: keep the old behaviour — drag pans, tap places on pointerup.
+      // Mobile users don't have separate buttons, so paint-on-drag would
+      // make the level un-pannable.
+      if (p.wasTouch) {
+        this.dragMode = "pan";
+        return;
+      }
+
+      // Mouse: button decides what the drag does.
+      //   0 (LMB) → continuous paint with the current tool
+      //   2 (RMB) → continuous erase, regardless of selected tool
+      //   1 (MMB) → camera pan (nice escape hatch when wheel-scroll isn't enough)
+      if (p.button === 2 || p.rightButtonDown()) {
+        this.dragMode = "erase";
+        this.snapshotForUndo();
+        this.eraseAtPointer(p);
+      } else if (p.button === 1) {
+        this.dragMode = "pan";
+      } else {
+        this.dragMode = "paint";
+        this.snapshotForUndo();
+        this.placeAtPointer(p);
+      }
     });
 
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
       const worldX = p.worldX;
       const worldY = p.worldY;
-      // ghost cursor follows the snapped position
-      const { x: gx, y: gy } = snapToGrid(worldX, worldY);
-      if (this.tool !== "erase") {
+      // Ghost cursor preview — hidden while right-erasing or when the erase
+      // tool is active (no preview = visual cue that you're in delete mode).
+      const { x: gx, y: gy } = snapToGrid(worldX, worldY, this.level.groundY);
+      const showGhost = this.tool !== "erase" && this.dragMode !== "erase";
+      if (showGhost) {
         const tex = TEX_OF[this.tool as ObjectKind] ?? "tx_block";
         this.ghostCursor.setVisible(true).setPosition(gx, gy).setTexture(tex);
       } else {
         this.ghostCursor.setVisible(false);
       }
 
-      if (!this.isDragging) return;
-      const dx = p.x - this.startPointerX;
-      if (!this.hasMoved && Math.abs(dx) > DRAG_THRESHOLD) {
-        this.hasMoved = true;
-      }
-      if (this.hasMoved) {
-        const worldW = this.level.length + GAME_WIDTH;
-        const maxScroll = Math.max(0, worldW - this.cameras.main.width);
-        const next = Phaser.Math.Clamp(
-          this.startScrollX - dx,
-          0,
-          maxScroll
-        );
-        this.cameras.main.scrollX = next;
+      if (this.dragMode === "none") return;
+
+      if (this.dragMode === "pan") {
+        const dx = p.x - this.startPointerX;
+        if (!this.hasMoved && Math.abs(dx) > DRAG_THRESHOLD) {
+          this.hasMoved = true;
+        }
+        if (this.hasMoved) {
+          const worldW = this.level.length + GAME_WIDTH;
+          const maxScroll = Math.max(0, worldW - this.cameras.main.width);
+          this.cameras.main.scrollX = Phaser.Math.Clamp(
+            this.startScrollX - dx,
+            0,
+            maxScroll
+          );
+        }
+      } else if (this.dragMode === "paint") {
+        this.placeAtPointer(p);
+      } else if (this.dragMode === "erase") {
+        this.eraseAtPointer(p);
       }
     });
 
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
-      const wasDrag = this.hasMoved;
-      this.isDragging = false;
-      if (wasDrag) return; // pan, not a tap
+      const mode = this.dragMode;
+      this.dragMode = "none";
 
-      const snap = snapToGrid(p.worldX, p.worldY);
-      if (!this.inBounds(snap.x, snap.y)) return;
-      this.commitAction(() => {
-        if (this.tool === "erase") {
-          this.eraseAt(snap.x, snap.y);
-        } else {
-          this.placeAt(this.tool, snap.x, snap.y);
-        }
-      });
+      // Touch path: a tap (no significant pan) places/erases a single cell —
+      // same as the original behaviour, kept so mobile editing still works.
+      if (p.wasTouch) {
+        if (this.hasMoved) return;
+        const snap = snapToGrid(p.worldX, p.worldY, this.level.groundY);
+        if (!this.inBounds(snap.x, snap.y)) return;
+        this.commitAction(() => {
+          if (this.tool === "erase") {
+            this.eraseAt(snap.x, snap.y);
+          } else {
+            this.placeAt(this.tool, snap.x, snap.y);
+          }
+        });
+        return;
+      }
+
+      // Mouse path: paint/erase already happened on every pointermove. Just
+      // emit a final change notification so the React layer sees the result.
+      if (mode === "paint" || mode === "erase") {
+        this.notify();
+      }
     });
+
+    // Out-of-canvas pointer release (drag off the editor): make sure we
+    // don't get "stuck" in paint/erase mode.
+    this.input.on("pointerupoutside", () => {
+      this.dragMode = "none";
+    });
+
+    // Mouse wheel / trackpad scroll → horizontal pan. Both deltaX (some
+    // trackpads send horizontal directly) and deltaY (most mice) translate
+    // into camera scrollX so users can navigate long levels comfortably.
+    this.input.on(
+      "wheel",
+      (
+        _pointer: Phaser.Input.Pointer,
+        _objects: Phaser.GameObjects.GameObject[],
+        deltaX: number,
+        deltaY: number
+      ) => {
+        const worldW = this.level.length + GAME_WIDTH;
+        const maxScroll = Math.max(0, worldW - this.cameras.main.width);
+        const dx = (Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY) * 0.8;
+        this.cameras.main.scrollX = Phaser.Math.Clamp(
+          this.cameras.main.scrollX + dx,
+          0,
+          maxScroll
+        );
+      }
+    );
+  }
+
+  // Continuous-paint helpers. They live OUTSIDE commitAction so that an
+  // entire drag is recorded as a single undo entry (snapshotForUndo runs
+  // once at pointerdown, then each cell mutates `placed` directly).
+  private placeAtPointer(p: Phaser.Input.Pointer) {
+    if (this.tool === "erase") {
+      this.eraseAtPointer(p);
+      return;
+    }
+    const snap = snapToGrid(p.worldX, p.worldY, this.level.groundY);
+    if (!this.inBounds(snap.x, snap.y)) return;
+    const key = `${snap.x},${snap.y}`;
+    if (this.paintedCells.has(key)) return;
+    this.paintedCells.add(key);
+    this.placeAt(this.tool, snap.x, snap.y);
+  }
+
+  private eraseAtPointer(p: Phaser.Input.Pointer) {
+    const snap = snapToGrid(p.worldX, p.worldY, this.level.groundY);
+    this.eraseAt(snap.x, snap.y);
+  }
+
+  private snapshotForUndo() {
+    this.undoStack.push(this.placed.map((p) => ({ ...p.obj })));
+    if (this.undoStack.length > 50) this.undoStack.shift();
+    this.redoStack = [];
   }
 
   // ─── Public API for React ───────────────────────────────────────────────
@@ -264,7 +447,7 @@ export class EditorScene extends Phaser.Scene {
 
   updateMeta(meta: Partial<LevelData>) {
     this.level = { ...this.level, ...meta };
-    this.cameras.main.setBackgroundColor(this.level.colors?.background ?? "#0F0F1A");
+    // Editor background stays fixed (editor theme) regardless of level.colors.
     this.cameras.main.setBounds(0, 0, this.level.length + GAME_WIDTH, GAME_HEIGHT);
     // Redraw boundaries / grid / spawn if length changed
     this.children.list.slice().forEach((c) => {
@@ -343,7 +526,7 @@ export class EditorScene extends Phaser.Scene {
     return (
       x >= 0 &&
       x <= this.level.length &&
-      y >= 96 &&
+      y >= CEILING_Y &&
       y <= this.level.groundY
     );
   }
@@ -363,9 +546,19 @@ export class EditorScene extends Phaser.Scene {
   }
 }
 
-function snapToGrid(x: number, y: number): { x: number; y: number } {
+// Snap X to the natural grid (centers at GRID/2 + k*GRID).
+// Snap Y to cells stacked UPWARD from the ground (centers at
+// groundY - GRID/2 - k*GRID). This keeps the bottom cell sitting exactly on
+// the ground line regardless of where the ceiling is.
+function snapToGrid(
+  x: number,
+  y: number,
+  groundY: number
+): { x: number; y: number } {
   const cx = Math.round((x - GRID / 2) / GRID) * GRID + GRID / 2;
-  const cy = Math.round((y - GRID / 2) / GRID) * GRID + GRID / 2;
+  const lowestCenter = groundY - GRID / 2;
+  const k = Math.max(0, Math.round((lowestCenter - y) / GRID));
+  const cy = lowestCenter - k * GRID;
   return { x: cx, y: cy };
 }
 
@@ -435,5 +628,94 @@ function makePortal(scene: Phaser.Scene, key: string, color: number) {
   g.fillStyle(0xffffff, 0.95);
   g.fillRect(w / 2 - 1, 6, 2, h - 12);
   g.generateTexture(key, w, h);
+  g.destroy();
+}
+
+function makePad(scene: Phaser.Scene, key: string, color: number) {
+  const w = 32;
+  const h = 12;
+  const g = scene.add.graphics({ x: 0, y: 0 });
+  g.fillStyle(0xffffff, 1);
+  g.fillRoundedRect(0, 0, w, h, 3);
+  g.lineStyle(1.5, 0x1a1a1a, 1);
+  g.strokeRoundedRect(0, 0, w, h, 3);
+  g.fillStyle(color, 1);
+  g.beginPath();
+  g.moveTo(6, h - 3);
+  g.lineTo(w / 2, 3);
+  g.lineTo(w - 6, h - 3);
+  g.closePath();
+  g.fillPath();
+  g.generateTexture(key, w, h);
+  g.destroy();
+}
+
+function makeSpeedPortal(
+  scene: Phaser.Scene,
+  key: string,
+  color: number,
+  chevrons: number,
+  direction: "left" | "right"
+) {
+  // Speed portals are shorter & wider than mode portals — they look like a
+  // little ring you pass through. Chevron count tells you the speed level
+  // (1 chevron = ×1, 4 chevrons = ×4); direction left = slow (×0.5).
+  const w = 36;
+  const h = 22;
+  const g = scene.add.graphics({ x: 0, y: 0 });
+  // Soft aura
+  g.fillStyle(color, 0.22);
+  g.fillRoundedRect(-3, -3, w + 6, h + 6, 8);
+  // Frame
+  g.lineStyle(2, color, 1);
+  g.strokeRoundedRect(0, 0, w, h, 6);
+  // Inner glow
+  g.fillStyle(color, 0.35);
+  g.fillRoundedRect(2, 2, w - 4, h - 4, 4);
+  // White core so the chevron reads cleanly
+  g.fillStyle(0xffffff, 1);
+  g.fillRoundedRect(3, 3, w - 6, h - 6, 3);
+  // Chevrons
+  const cw = 4;
+  const gap = 1.5;
+  const totalW = chevrons * cw + (chevrons - 1) * gap;
+  const startX = (w - totalW) / 2;
+  const top = 6;
+  const bot = h - 6;
+  const mid = h / 2;
+  g.fillStyle(color, 1);
+  for (let i = 0; i < chevrons; i++) {
+    const x = startX + i * (cw + gap);
+    g.beginPath();
+    if (direction === "right") {
+      g.moveTo(x, top);
+      g.lineTo(x + cw, mid);
+      g.lineTo(x, bot);
+      g.lineTo(x + cw / 2, mid);
+    } else {
+      g.moveTo(x + cw, top);
+      g.lineTo(x, mid);
+      g.lineTo(x + cw, bot);
+      g.lineTo(x + cw / 2, mid);
+    }
+    g.closePath();
+    g.fillPath();
+  }
+  g.generateTexture(key, w, h);
+  g.destroy();
+}
+
+function makeOrb(scene: Phaser.Scene, key: string, color: number) {
+  const size = 28;
+  const g = scene.add.graphics({ x: 0, y: 0 });
+  g.fillStyle(color, 0.22);
+  g.fillCircle(size / 2, size / 2, size / 2);
+  g.lineStyle(2, color, 1);
+  g.strokeCircle(size / 2, size / 2, size / 2 - 2);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(size / 2, size / 2, size / 2 - 6);
+  g.fillStyle(color, 1);
+  g.fillCircle(size / 2, size / 2, 3);
+  g.generateTexture(key, size, size);
   g.destroy();
 }
