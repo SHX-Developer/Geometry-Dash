@@ -68,6 +68,8 @@ const CATEGORIES: ToolCategory[] = [
       { id: "orb_purple", symbol: "◯", name: "ORB-P", color: "#B388FF" },
       { id: "orb_yellow", symbol: "◯", name: "ORB-Y", color: "#FFD23F" },
       { id: "orb_blue", symbol: "◯", name: "ORB-B", color: "#2D6BFF" },
+      { id: "orb_black", symbol: "◯", name: "ORB-D", color: "#2a2a2a" },
+      { id: "orb_green", symbol: "◯", name: "ORB-G", color: "#4CAF50" },
     ],
   },
   {
@@ -78,6 +80,19 @@ const CATEGORIES: ToolCategory[] = [
       { id: "ship_portal", symbol: "▶", name: "SHIP" },
       { id: "cube_portal", symbol: "▢", name: "CUBE" },
       { id: "ufo_portal", symbol: "◉", name: "UFO", color: "#00C9B7" },
+      { id: "wave_portal", symbol: "≋", name: "WAVE", color: "#E91E63" },
+      { id: "ball_portal", symbol: "●", name: "BALL", color: "#4DFFB8" },
+      { id: "robot_portal", symbol: "♟", name: "ROBOT", color: "#FF8A00" },
+      { id: "spider_portal", symbol: "✸", name: "SPIDER", color: "#7B1FA2" },
+      { id: "swing_portal", symbol: "↯", name: "SWING", color: "#FFEB3B" },
+    ],
+  },
+  {
+    id: "size",
+    name: "SIZE",
+    tools: [
+      { id: "mini_portal", symbol: "▾", name: "MINI", color: "#9C27B0" },
+      { id: "big_portal", symbol: "▴", name: "BIG", color: "#607D8B" },
     ],
   },
   {
@@ -94,7 +109,10 @@ const CATEGORIES: ToolCategory[] = [
   {
     id: "tools",
     name: "TOOLS",
-    tools: [{ id: "erase", symbol: "✕", name: "ERASE" }],
+    tools: [
+      { id: "erase", symbol: "✕", name: "ERASE" },
+      { id: "rotate", symbol: "↻", name: "EDIT", color: "#2D6BFF" },
+    ],
   },
 ];
 
@@ -291,10 +309,20 @@ export function Editor() {
           style={{
             font: "700 11px/1 ui-monospace, monospace",
             letterSpacing: "0.15em",
-            color: tool === "erase" ? "#c92a2a" : "#1a1a1a",
+            color:
+              tool === "erase"
+                ? "#c92a2a"
+                : tool === "rotate"
+                ? "#2D6BFF"
+                : "#1a1a1a",
           }}
         >
-          {(tool === "erase" ? "DELETE" : "BUILD").toString()} MODE
+          {tool === "erase"
+            ? "DELETE"
+            : tool === "rotate"
+            ? "EDIT"
+            : "BUILD"}{" "}
+          MODE
           <span className="lbl ml-2">
             · {activeTool?.name ?? ""}
           </span>

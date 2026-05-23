@@ -15,13 +15,27 @@ export type ObjectKind =
   | "pad_blue"
   // Orbs — same payloads as the pads, but the player must TAP while
   // overlapping. Each orb fires once per overlap.
+  //   purple = light hop, yellow = normal hop, blue = gravity flip,
+  //   black  = sharp dash DOWNWARD (along current gravity),
+  //   green  = gravity flip + yellow-style hop in the NEW gravity direction.
   | "orb_purple"
   | "orb_yellow"
   | "orb_blue"
+  | "orb_black"
+  | "orb_green"
   | "gravity_portal"
   | "ship_portal"
   | "cube_portal"
   | "ufo_portal"
+  | "wave_portal"
+  | "ball_portal"
+  | "robot_portal"
+  | "spider_portal"
+  | "swing_portal"
+  // Size portals — mini shrinks the player to 0.6×, big restores to 1×.
+  // Both visuals are short ring-style portals like the speed ones.
+  | "mini_portal"
+  | "big_portal"
   // Speed portals — change the player's horizontal run speed on x-crossing.
   //   slow → 0.7×, normal → 1×, fast → 1.3×, faster → 1.5×, fastest → 1.75×
   // (Labels match GD's "×0.5 / ×1 / ×2 / ×3 / ×4" convention; the actual
@@ -62,4 +76,12 @@ export interface LevelData {
   objects: LevelObject[];
 }
 
-export type PlayerMode = "cube" | "ship" | "ball" | "ufo";
+export type PlayerMode =
+  | "cube"
+  | "ship"
+  | "ball"
+  | "ufo"
+  | "wave"
+  | "robot"
+  | "spider"
+  | "swing";

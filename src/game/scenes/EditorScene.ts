@@ -13,16 +13,26 @@ export type EditorTool =
   | "orb_purple"
   | "orb_yellow"
   | "orb_blue"
+  | "orb_black"
+  | "orb_green"
   | "gravity_portal"
   | "ship_portal"
   | "cube_portal"
   | "ufo_portal"
+  | "wave_portal"
+  | "ball_portal"
+  | "robot_portal"
+  | "spider_portal"
+  | "swing_portal"
+  | "mini_portal"
+  | "big_portal"
   | "speed_half"
   | "speed_1x"
   | "speed_2x"
   | "speed_3x"
   | "speed_4x"
-  | "erase";
+  | "erase"
+  | "rotate";
 
 const GRID = GRID_CONST;
 const DRAG_THRESHOLD = 6; // px — drag vs tap distinction (touch path only)
@@ -48,10 +58,19 @@ const TEX_OF: Record<ObjectKind, string> = {
   orb_purple: "tx_orb_purple",
   orb_yellow: "tx_orb_yellow",
   orb_blue: "tx_orb_blue",
+  orb_black: "tx_orb_black",
+  orb_green: "tx_orb_green",
   gravity_portal: "tx_portal_gravity",
   ship_portal: "tx_portal_ship",
   cube_portal: "tx_portal_cube",
   ufo_portal: "tx_portal_ufo",
+  wave_portal: "tx_portal_wave",
+  ball_portal: "tx_portal_ball",
+  robot_portal: "tx_portal_robot",
+  spider_portal: "tx_portal_spider",
+  swing_portal: "tx_portal_swing",
+  mini_portal: "tx_portal_mini",
+  big_portal: "tx_portal_big",
   speed_half: "tx_speed_half",
   speed_1x: "tx_speed_1x",
   speed_2x: "tx_speed_2x",
@@ -153,6 +172,10 @@ export class EditorScene extends Phaser.Scene {
       makeOrb(this, "tx_orb_yellow", THEME.orbYellow);
     if (!this.textures.exists("tx_orb_blue"))
       makeOrb(this, "tx_orb_blue", THEME.orbBlue);
+    if (!this.textures.exists("tx_orb_black"))
+      makeOrb(this, "tx_orb_black", THEME.orbBlack, "down");
+    if (!this.textures.exists("tx_orb_green"))
+      makeOrb(this, "tx_orb_green", THEME.orbGreen, "flip");
     if (!this.textures.exists("tx_portal_gravity"))
       makePortal(this, "tx_portal_gravity", THEME.portalGravity);
     if (!this.textures.exists("tx_portal_ship"))
@@ -161,6 +184,20 @@ export class EditorScene extends Phaser.Scene {
       makePortal(this, "tx_portal_cube", THEME.portalCube);
     if (!this.textures.exists("tx_portal_ufo"))
       makePortal(this, "tx_portal_ufo", THEME.portalUfo);
+    if (!this.textures.exists("tx_portal_wave"))
+      makePortal(this, "tx_portal_wave", THEME.portalWave);
+    if (!this.textures.exists("tx_portal_ball"))
+      makePortal(this, "tx_portal_ball", THEME.portalBall);
+    if (!this.textures.exists("tx_portal_robot"))
+      makePortal(this, "tx_portal_robot", THEME.portalRobot);
+    if (!this.textures.exists("tx_portal_spider"))
+      makePortal(this, "tx_portal_spider", THEME.portalSpider);
+    if (!this.textures.exists("tx_portal_swing"))
+      makePortal(this, "tx_portal_swing", THEME.portalSwing);
+    if (!this.textures.exists("tx_portal_mini"))
+      makePortal(this, "tx_portal_mini", THEME.portalMini);
+    if (!this.textures.exists("tx_portal_big"))
+      makePortal(this, "tx_portal_big", THEME.portalBig);
     if (!this.textures.exists("tx_speed_half"))
       makeSpeedPortal(this, "tx_speed_half", THEME.speedHalf, 1, "left");
     if (!this.textures.exists("tx_speed_1x"))
@@ -305,6 +342,13 @@ export class EditorScene extends Phaser.Scene {
         this.eraseAtPointer(p);
       } else if (p.button === 1) {
         this.dragMode = "pan";
+      } else if (this.tool === "rotate") {
+        // Rotate tool — a single click on a placed object adds 90° to its
+        // rotation. No drag-paint behaviour; the click is consumed and the
+        // editor returns to idle. Useful for orienting spikes (sideways /
+        // ceiling-mounted), and for tilting blocks visually.
+        this.commitAction(() => this.rotateAtPointer(p));
+        this.dragMode = "none";
       } else {
         this.dragMode = "paint";
         this.snapshotForUndo();
@@ -315,10 +359,14 @@ export class EditorScene extends Phaser.Scene {
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
       const worldX = p.worldX;
       const worldY = p.worldY;
-      // Ghost cursor preview — hidden while right-erasing or when the erase
-      // tool is active (no preview = visual cue that you're in delete mode).
+      // Ghost cursor preview — hidden while right-erasing or when the erase/
+      // rotate tool is active (no preview = visual cue that you're in a
+      // non-place mode).
       const { x: gx, y: gy } = snapToGrid(worldX, worldY, this.level.groundY);
-      const showGhost = this.tool !== "erase" && this.dragMode !== "erase";
+      const showGhost =
+        this.tool !== "erase" &&
+        this.tool !== "rotate" &&
+        this.dragMode !== "erase";
       if (showGhost) {
         const tex = TEX_OF[this.tool as ObjectKind] ?? "tx_block";
         this.ghostCursor.setVisible(true).setPosition(gx, gy).setTexture(tex);
@@ -353,8 +401,9 @@ export class EditorScene extends Phaser.Scene {
       const mode = this.dragMode;
       this.dragMode = "none";
 
-      // Touch path: a tap (no significant pan) places/erases a single cell —
-      // same as the original behaviour, kept so mobile editing still works.
+      // Touch path: a tap (no significant pan) places/erases/rotates a
+      // single cell — same as the original behaviour, kept so mobile
+      // editing still works.
       if (p.wasTouch) {
         if (this.hasMoved) return;
         const snap = snapToGrid(p.worldX, p.worldY, this.level.groundY);
@@ -362,6 +411,8 @@ export class EditorScene extends Phaser.Scene {
         this.commitAction(() => {
           if (this.tool === "erase") {
             this.eraseAt(snap.x, snap.y);
+          } else if (this.tool === "rotate") {
+            this.rotateAt(snap.x, snap.y);
           } else {
             this.placeAt(this.tool, snap.x, snap.y);
           }
@@ -424,6 +475,30 @@ export class EditorScene extends Phaser.Scene {
   private eraseAtPointer(p: Phaser.Input.Pointer) {
     const snap = snapToGrid(p.worldX, p.worldY, this.level.groundY);
     this.eraseAt(snap.x, snap.y);
+  }
+
+  private rotateAtPointer(p: Phaser.Input.Pointer) {
+    const snap = snapToGrid(p.worldX, p.worldY, this.level.groundY);
+    this.rotateAt(snap.x, snap.y);
+  }
+
+  /**
+   * Rotate the object closest to (x, y) by +90°. Searches within one grid
+   * cell of the click so the user doesn't have to be pixel-perfect. The
+   * spike's hitbox in GameplayScene already reads the live rotation field
+   * and chooses a vertical-vs-horizontal hitbox automatically, so rotating
+   * a spike here actually changes its collision behaviour at runtime, not
+   * just its visual angle.
+   */
+  private rotateAt(x: number, y: number) {
+    const idx = this.placed.findIndex(
+      (p) => Math.abs(p.obj.x - x) < GRID && Math.abs(p.obj.y - y) < GRID
+    );
+    if (idx === -1) return;
+    const entry = this.placed[idx];
+    const next = (((entry.obj.rotation ?? 0) + 90) % 360 + 360) % 360;
+    entry.obj.rotation = next;
+    entry.node.setAngle(next);
   }
 
   private snapshotForUndo() {
@@ -496,7 +571,7 @@ export class EditorScene extends Phaser.Scene {
   }
 
   private placeAt(kind: EditorTool, x: number, y: number) {
-    if (kind === "erase") return;
+    if (kind === "erase" || kind === "rotate") return;
     // Avoid stacking the exact same object on the same cell.
     const exists = this.placed.find(
       (p) => p.obj.id === kind && p.obj.x === x && p.obj.y === y
@@ -705,7 +780,12 @@ function makeSpeedPortal(
   g.destroy();
 }
 
-function makeOrb(scene: Phaser.Scene, key: string, color: number) {
+function makeOrb(
+  scene: Phaser.Scene,
+  key: string,
+  color: number,
+  glyph: "dot" | "down" | "flip" = "dot"
+) {
   const size = 28;
   const g = scene.add.graphics({ x: 0, y: 0 });
   g.fillStyle(color, 0.22);
@@ -714,8 +794,35 @@ function makeOrb(scene: Phaser.Scene, key: string, color: number) {
   g.strokeCircle(size / 2, size / 2, size / 2 - 2);
   g.fillStyle(0xffffff, 1);
   g.fillCircle(size / 2, size / 2, size / 2 - 6);
+  const cx = size / 2;
+  const cy = size / 2;
   g.fillStyle(color, 1);
-  g.fillCircle(size / 2, size / 2, 3);
+  if (glyph === "dot") {
+    g.fillCircle(cx, cy, 3);
+  } else if (glyph === "down") {
+    g.beginPath();
+    g.moveTo(cx - 4, cy - 3);
+    g.lineTo(cx, cy + 4);
+    g.lineTo(cx + 4, cy - 3);
+    g.lineTo(cx, cy + 1);
+    g.closePath();
+    g.fillPath();
+  } else if (glyph === "flip") {
+    g.beginPath();
+    g.moveTo(cx - 4, cy + 1);
+    g.lineTo(cx, cy - 5);
+    g.lineTo(cx + 4, cy + 1);
+    g.lineTo(cx, cy - 2);
+    g.closePath();
+    g.fillPath();
+    g.beginPath();
+    g.moveTo(cx - 4, cy);
+    g.lineTo(cx, cy + 6);
+    g.lineTo(cx + 4, cy);
+    g.lineTo(cx, cy + 3);
+    g.closePath();
+    g.fillPath();
+  }
   g.generateTexture(key, size, size);
   g.destroy();
 }

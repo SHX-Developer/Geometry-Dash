@@ -26,16 +26,27 @@ export class BootScene extends Phaser.Scene {
     this.makePadTexture("tx_pad_yellow", THEME.padYellow);
     this.makePadTexture("tx_pad_blue", THEME.padBlue);
 
-    // Three orb colours — circles with a darker centre so they read like a
-    // "tap target" rather than a pad.
+    // Five orb colours — circles with a darker centre so they read like a
+    // "tap target" rather than a pad. Black orb gets a downward-pointing
+    // chevron baked in to advertise "I send you down"; green orb gets two
+    // chevrons (one up, one down) to advertise "flip + hop".
     this.makeOrbTexture("tx_orb_purple", THEME.orbPurple);
     this.makeOrbTexture("tx_orb_yellow", THEME.orbYellow);
     this.makeOrbTexture("tx_orb_blue", THEME.orbBlue);
+    this.makeOrbTexture("tx_orb_black", THEME.orbBlack, "down");
+    this.makeOrbTexture("tx_orb_green", THEME.orbGreen, "flip");
 
     this.makePortalTexture("tx_portal_gravity", THEME.portalGravity, "↕");
     this.makePortalTexture("tx_portal_ship", THEME.portalShip, "▶");
     this.makePortalTexture("tx_portal_cube", THEME.portalCube, "■");
     this.makePortalTexture("tx_portal_ufo", THEME.portalUfo, "◉");
+    this.makePortalTexture("tx_portal_wave", THEME.portalWave, "≋");
+    this.makePortalTexture("tx_portal_ball", THEME.portalBall, "●");
+    this.makePortalTexture("tx_portal_robot", THEME.portalRobot, "♟");
+    this.makePortalTexture("tx_portal_spider", THEME.portalSpider, "✸");
+    this.makePortalTexture("tx_portal_swing", THEME.portalSwing, "↯");
+    this.makePortalTexture("tx_portal_mini", THEME.portalMini, "▾");
+    this.makePortalTexture("tx_portal_big", THEME.portalBig, "▴");
 
     // Speed portals — compact horizontal rings tagged with N chevrons that
     // tell the player the new run-speed level.
@@ -121,8 +132,13 @@ export class BootScene extends Phaser.Scene {
 
   // Generic orb shape — circle with a coloured outer ring and a tappable-
   // looking centre. Slightly larger than a pad so the player can tell at a
-  // glance "I need to tap this", not just touch it.
-  private makeOrbTexture(key: string, color: number) {
+  // glance "I need to tap this", not just touch it. Optional `glyph` lets
+  // specific orbs advertise their payload at a glance.
+  private makeOrbTexture(
+    key: string,
+    color: number,
+    glyph: "dot" | "down" | "flip" = "dot"
+  ) {
     const size = 28;
     const g = this.add.graphics({ x: 0, y: 0 });
     // Soft halo
@@ -134,9 +150,38 @@ export class BootScene extends Phaser.Scene {
     // White core
     g.fillStyle(0xffffff, 1);
     g.fillCircle(size / 2, size / 2, size / 2 - 6);
-    // Dot in centre matching the colour — visual "this is the tap target"
+    const cx = size / 2;
+    const cy = size / 2;
     g.fillStyle(color, 1);
-    g.fillCircle(size / 2, size / 2, 3);
+    if (glyph === "dot") {
+      // Default: dot in centre — "this is the tap target".
+      g.fillCircle(cx, cy, 3);
+    } else if (glyph === "down") {
+      // Downward chevron — black orb sends you sharply down.
+      g.beginPath();
+      g.moveTo(cx - 4, cy - 3);
+      g.lineTo(cx, cy + 4);
+      g.lineTo(cx + 4, cy - 3);
+      g.lineTo(cx, cy + 1);
+      g.closePath();
+      g.fillPath();
+    } else if (glyph === "flip") {
+      // Up + down chevron — green orb flips gravity and hops.
+      g.beginPath();
+      g.moveTo(cx - 4, cy + 1);
+      g.lineTo(cx, cy - 5);
+      g.lineTo(cx + 4, cy + 1);
+      g.lineTo(cx, cy - 2);
+      g.closePath();
+      g.fillPath();
+      g.beginPath();
+      g.moveTo(cx - 4, cy);
+      g.lineTo(cx, cy + 6);
+      g.lineTo(cx + 4, cy);
+      g.lineTo(cx, cy + 3);
+      g.closePath();
+      g.fillPath();
+    }
     g.generateTexture(key, size, size);
     g.destroy();
   }

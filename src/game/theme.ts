@@ -34,11 +34,24 @@ export const THEME = {
   orbPurple: 0xb388ff,
   orbYellow: 0xffd23f,
   orbBlue: 0x2d6bff,
+  // Black orb — sharp downward dash. Dark grey rather than pure black so the
+  // outline + halo still read on the warm off-white background.
+  orbBlack: 0x2a2a2a,
+  // Green orb — gravity flip + yellow-style hop. Bright lime so it can't be
+  // confused with the mint ball-portal tint.
+  orbGreen: 0x4caf50,
 
   portalGravity: 0x2d6bff,
   portalShip: 0x1a1a1a,
   portalCube: 0x6b6b6b,
   portalUfo: 0x00c9b7, // alien teal — distinguishes UFO portal from the rest
+  portalWave: 0xe91e63, // hot pink — wave portal stands out from the others
+  portalBall: 0x4dffb8, // mint — ball/circle mode
+  portalRobot: 0xff8a00, // amber — variable-jump robot mode
+  portalSpider: 0x7b1fa2, // deep violet — instant-snap spider mode
+  portalSwing: 0xffeb3b, // bright yellow — swingcopter (hold = invert gravity)
+  portalMini: 0x9c27b0, // purple — shrinks the player
+  portalBig: 0x607d8b,  // slate — restores to normal size
 
   // Speed portal palette — five visually distinct hues so the player can
   // read the current speed at a glance, even at 60 FPS scroll.

@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import { type GameLaunchOptions } from "../PhaserGame";
 import { CEILING_Y, GAME_HEIGHT, GAME_WIDTH } from "../constants";
-import { Player, PLAYER_SIZE } from "../player/Player";
+import { Player, PLAYER_SIZE, type OrbKind } from "../player/Player";
 import { loadLevel } from "../levels/LevelLoader";
 import type { LevelData, LevelObject, ObjectKind } from "../levels/types";
 import { getSkin } from "../skins/skins";
@@ -13,6 +13,10 @@ const GROUND_HEIGHT = GAME_HEIGHT;
 // scrollX (= camera.scrollX + PLAYER_X_ON_SCREEN). With camera zoom, the
 // player visually appears at PLAYER_X_ON_SCREEN * zoom canvas pixels in.
 const PLAYER_X_ON_SCREEN = 200;
+// How long after walking past an orb the player can still tap and fire it.
+// Adds a forgiving "late tap" window so you don't have to be frame-perfect
+// — once you've touched the orb, you've got ~120 ms to actually press jump.
+const ORB_LATE_TAP_GRACE_MS = 120;
 // 1.0 = no zoom — the full 960×540 world frame fits on screen. Was 1.2;
 // dropped to give the player more reaction time on long spike runs.
 const CAMERA_ZOOM = 1.0;
@@ -240,13 +244,19 @@ export class GameplayScene extends Phaser.Scene {
       }
       case "orb_purple":
       case "orb_yellow":
-      case "orb_blue": {
+      case "orb_blue":
+      case "orb_black":
+      case "orb_green": {
         const texKey =
           obj.id === "orb_purple"
             ? "tx_orb_purple"
             : obj.id === "orb_yellow"
             ? "tx_orb_yellow"
-            : "tx_orb_blue";
+            : obj.id === "orb_blue"
+            ? "tx_orb_blue"
+            : obj.id === "orb_black"
+            ? "tx_orb_black"
+            : "tx_orb_green";
         const s = this.orbs
           .create(obj.x, obj.y, texKey)
           .setOrigin(0.5)
@@ -261,13 +271,31 @@ export class GameplayScene extends Phaser.Scene {
           yoyo: true,
           repeat: -1,
         });
-        (s.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+        // Expand the static body well beyond the visible 28-px ring so the
+        // overlap is forgiving — without this, the player has to be near-
+        // pixel-perfect on a fast scroll to land a tap. ~46×46 means roughly
+        // ±9 px slack in every direction around the visible orb.
+        const body = s.body as Phaser.Physics.Arcade.StaticBody;
+        const HIT = 46;
+        body.setSize(HIT, HIT);
+        body.setOffset(
+          (s.width - HIT) / 2,
+          (s.height - HIT) / 2
+        );
+        body.updateFromGameObject();
         break;
       }
       case "gravity_portal":
       case "ship_portal":
       case "cube_portal":
-      case "ufo_portal": {
+      case "ufo_portal":
+      case "wave_portal":
+      case "ball_portal":
+      case "robot_portal":
+      case "spider_portal":
+      case "swing_portal":
+      case "mini_portal":
+      case "big_portal": {
         const texKey =
           obj.id === "gravity_portal"
             ? "tx_portal_gravity"
@@ -275,6 +303,20 @@ export class GameplayScene extends Phaser.Scene {
             ? "tx_portal_ship"
             : obj.id === "ufo_portal"
             ? "tx_portal_ufo"
+            : obj.id === "wave_portal"
+            ? "tx_portal_wave"
+            : obj.id === "ball_portal"
+            ? "tx_portal_ball"
+            : obj.id === "robot_portal"
+            ? "tx_portal_robot"
+            : obj.id === "spider_portal"
+            ? "tx_portal_spider"
+            : obj.id === "swing_portal"
+            ? "tx_portal_swing"
+            : obj.id === "mini_portal"
+            ? "tx_portal_mini"
+            : obj.id === "big_portal"
+            ? "tx_portal_big"
             : "tx_portal_cube";
         // Visual only — trigger handled by x-crossing in update() so the
         // player can never miss a portal by being at the "wrong" y.
@@ -294,6 +336,20 @@ export class GameplayScene extends Phaser.Scene {
             ? THEME.portalShip
             : obj.id === "ufo_portal"
             ? THEME.portalUfo
+            : obj.id === "wave_portal"
+            ? THEME.portalWave
+            : obj.id === "ball_portal"
+            ? THEME.portalBall
+            : obj.id === "robot_portal"
+            ? THEME.portalRobot
+            : obj.id === "spider_portal"
+            ? THEME.portalSpider
+            : obj.id === "swing_portal"
+            ? THEME.portalSwing
+            : obj.id === "mini_portal"
+            ? THEME.portalMini
+            : obj.id === "big_portal"
+            ? THEME.portalBig
             : THEME.portalCube;
         this.add
           .rectangle(
@@ -572,20 +628,29 @@ export class GameplayScene extends Phaser.Scene {
       // Already fired this overlap — don't arm again until we walk off.
       return;
     }
-    const kind = orbObj.getData("orbKind") as
-      | "orb_purple"
-      | "orb_yellow"
-      | "orb_blue"
-      | undefined;
+    const kind = orbObj.getData("orbKind") as OrbKind | undefined;
     if (!kind) return;
     this.currentOrbSprite = orbObj;
     this.player.setQueuedOrb(kind);
+    // Late-tap grace: even after the player leaves the orb's hitbox, the
+    // queued orb stays armed for a few extra frames so a tap a tiny bit
+    // late still fires. Recorded as an absolute timestamp; checked in
+    // update() when the overlap is gone.
+    this.orbGraceUntil = this.time.now + ORB_LATE_TAP_GRACE_MS;
+    this.lateGraceOrbSprite = orbObj;
+    this.lateGraceOrbKind = kind;
   };
 
   // Reference to whichever orb the player is armed against right now —
   // used by Player's onOrbFired callback to mark it as activated and to
   // play a squash tween.
   private currentOrbSprite: Phaser.GameObjects.GameObject | null = null;
+  // Late-tap grace: after the player leaves an orb's hitbox, we keep the
+  // queued orb armed for ORB_LATE_TAP_GRACE_MS so a slightly late press
+  // still fires. orbGraceUntil is an absolute time.now value.
+  private orbGraceUntil = 0;
+  private lateGraceOrbSprite: Phaser.GameObjects.GameObject | null = null;
+  private lateGraceOrbKind: OrbKind | null = null;
 
   private triggerPortal(kind: ObjectKind) {
     switch (kind) {
@@ -600,6 +665,27 @@ export class GameplayScene extends Phaser.Scene {
         break;
       case "ufo_portal":
         this.player.setMode("ufo");
+        break;
+      case "wave_portal":
+        this.player.setMode("wave");
+        break;
+      case "ball_portal":
+        this.player.setMode("ball");
+        break;
+      case "robot_portal":
+        this.player.setMode("robot");
+        break;
+      case "spider_portal":
+        this.player.setMode("spider");
+        break;
+      case "swing_portal":
+        this.player.setMode("swing");
+        break;
+      case "mini_portal":
+        this.player.setSizeScale(0.6);
+        break;
+      case "big_portal":
+        this.player.setSizeScale(1);
         break;
       // Speed portals — instant horizontal-speed change. Multipliers are
       // tuned for playable difficulty (not the literal label number):
@@ -642,6 +728,9 @@ export class GameplayScene extends Phaser.Scene {
     this.firedOrbs.clear();
     this.orbsOverlappingThisFrame.clear();
     this.currentOrbSprite = null;
+    this.orbGraceUntil = 0;
+    this.lateGraceOrbSprite = null;
+    this.lateGraceOrbKind = null;
     this.player.reset(this.spawnX, this.spawnY);
     this.cameras.main.scrollX = 0;
     this.cameras.main.scrollY =
@@ -688,11 +777,27 @@ export class GameplayScene extends Phaser.Scene {
         }
       }
     }
-    // 2. If the player is no longer overlapping ANY orb this frame, clear
-    //    Player.queuedOrb so a tap on empty ground produces a normal jump.
+    // 2. If the player is no longer overlapping ANY orb this frame, KEEP
+    //    the queued orb armed until orbGraceUntil expires. That gives the
+    //    player a small "late tap" window after stepping off an orb so the
+    //    timing isn't pixel-perfect. The current orb sprite is preserved
+    //    so the squash tween still targets the right orb if/when it fires.
     if (this.orbsOverlappingThisFrame.size === 0) {
-      this.player.setQueuedOrb(null);
-      this.currentOrbSprite = null;
+      if (this.time.now >= this.orbGraceUntil) {
+        this.player.setQueuedOrb(null);
+        this.currentOrbSprite = null;
+        this.lateGraceOrbSprite = null;
+        this.lateGraceOrbKind = null;
+      } else if (this.lateGraceOrbKind) {
+        // Re-arm with the late-grace orb in case Player.queuedOrb was
+        // cleared by something else (defensive — no-op if it's already set).
+        this.player.setQueuedOrb(this.lateGraceOrbKind);
+        this.currentOrbSprite = this.lateGraceOrbSprite;
+      }
+    } else {
+      // We're still in an orb — reset the grace deadline so it only kicks
+      // in once we actually leave.
+      this.orbGraceUntil = 0;
     }
     // 3. Reset the frame-local overlap set for the next physics step.
     this.orbsOverlappingThisFrame.clear();

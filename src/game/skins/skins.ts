@@ -2,7 +2,15 @@
 // renders itself using these colors). For MVP, "icons" are programmatically
 // drawn shapes — no external textures required.
 
-export type SkinShape = "cube" | "ball" | "ship" | "wave" | "ufo";
+export type SkinShape =
+  | "cube"
+  | "ball"
+  | "ship"
+  | "wave"
+  | "ufo"
+  | "robot"
+  | "spider"
+  | "swing";
 
 export interface Skin {
   id: string;
